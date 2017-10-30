@@ -15,8 +15,6 @@ import (
 	"github.com/OneOfOne/xxhash"
 )
 
-const replicationFactor = 10
-
 var ErrNoHosts = errors.New("no hosts added")
 
 type Host struct {
@@ -24,16 +22,18 @@ type Host struct {
 }
 
 type Consistent struct {
-	hosts     map[uint64]string
-	sortedSet []uint64
+	hosts             map[uint64]string
+	sortedSet         []uint64
+	replicationFactor int
 
 	sync.RWMutex
 }
 
-func New() *Consistent {
+func New(factor int) *Consistent {
 	return &Consistent{
-		hosts:     map[uint64]string{},
-		sortedSet: []uint64{},
+		hosts:             map[uint64]string{},
+		sortedSet:         []uint64{},
+		replicationFactor: factor,
 	}
 }
 
@@ -41,7 +41,7 @@ func (c *Consistent) Add(host string) {
 	c.Lock()
 	defer c.Unlock()
 
-	for i := 0; i < replicationFactor; i++ {
+	for i := 0; i < c.replicationFactor; i++ {
 		h := c.hash(fmt.Sprintf("%s%d", host, i))
 		c.hosts[h] = host
 		c.sortedSet = append(c.sortedSet, h)
@@ -90,7 +90,7 @@ func (c *Consistent) Remove(host string) bool {
 	c.Lock()
 	defer c.Unlock()
 
-	for i := 0; i < replicationFactor; i++ {
+	for i := 0; i < c.replicationFactor; i++ {
 		h := c.hash(fmt.Sprintf("%s%d", host, i))
 		delete(c.hosts, h)
 		c.delSlice(h)
